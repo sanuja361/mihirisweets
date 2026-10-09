@@ -9,6 +9,10 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20120%20120%22%3E%3Ccircle%20cx%3D%2260%22%20cy%3D%2260%22%20r%3D%2260%22%20fill%3D%22%23000%22%2F%3E%3Ccircle%20cx%3D%2260%22%20cy%3D%2260%22%20r%3D%2254%22%20fill%3D%22none%22%20stroke%3D%22%23c9a46a%22%20stroke-width%3D%224%22%2F%3E%3Cpath%20d%3D%22M%2032%2086%20L%2032%2052%20C%2032%2040%2044%2036%2050%2046%20L%2060%2064%20L%2070%2046%20C%2076%2036%2088%2040%2088%2052%20L%2088%2086%22%20fill%3D%22none%22%20stroke%3D%22%23d4b47a%22%20stroke-width%3D%228%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M60%2018%20C%2065%2028%2068%2033%2060%2038%20C%2052%2033%2055%2028%2060%2018Z%22%20fill%3D%22%23d2394d%22%2F%3E%3C%2Fsvg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="image" href="images/c4.webp">
+<link rel="preload" as="image" href="images/u3.webp">
+<link rel="preload" as="image" href="images/d1.webp">
+<link rel="preload" as="image" href="images/k1.webp">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Italiana&amp;family=Great+Vibes&amp;family=Josefin+Sans:ital,wght@0,300;0,400;0,500;1,300&amp;display=swap">
 <style>
 *,*::before,*::after{box-sizing:border-box}
@@ -113,6 +117,11 @@ img{display:block;max-width:100%}
 .hx-cta{position:relative;display:flex;flex-wrap:wrap;justify-content:center;gap:14px;margin-top:46px}
 .rise{animation:enter 1.1s cubic-bezier(.2,.8,.2,1) both}
 .r1{animation-delay:.05s}.r2{animation-delay:.18s}.r3{animation-delay:.3s}.r4{animation-delay:.45s}.r5{animation-delay:.6s}
+/* entrances hold until their pictures have arrived, so they play on a slow connection too */
+.hero[data-wait] .rise,.hero[data-wait] .hx>li{animation-play-state:paused}
+.ct-grid[data-wait] .ct{opacity:0}
+.ct-grid[data-in] .ct{animation:slidein 1.1s cubic-bezier(.2,.8,.2,1) backwards}
+.ct-grid[data-in] .ct:nth-child(2){animation-delay:.12s}.ct-grid[data-in] .ct:nth-child(3){animation-delay:.24s}.ct-grid[data-in] .ct:nth-child(4){animation-delay:.36s}.ct-grid[data-in] .ct:nth-child(5){animation-delay:.48s}
 
 /* marquee */
 .mq{overflow:hidden;padding:26px 0;background:#0b0b0b;border-top:1px solid rgba(201,164,106,.18);border-bottom:1px solid rgba(201,164,106,.18)}
@@ -264,7 +273,7 @@ img{display:block;max-width:100%}
 
 /* scroll reveals where supported */
 @supports (animation-timeline: view()){
-  .ch-head,.ct-grid,.steps li,.box-head{animation:reveal linear both;animation-timeline:view();animation-range:entry 0% cover 28%}
+  .ch-head,.steps li,.box-head{animation:reveal linear both;animation-timeline:view();animation-range:entry 0% cover 28%}
 }
 
 @keyframes enter{from{opacity:0;transform:translateY(28px)}}
@@ -330,7 +339,8 @@ img{display:block;max-width:100%}
   .ct-name{font-size:calc(25px * var(--fdz))}
   .how{padding:90px 0}
   .box{padding:90px 0 110px}
-  .line{grid-template-columns:60px minmax(0,1fr) 44px;grid-template-areas:"img txt rm" "step step total";gap:12px 14px}
+  .line{grid-template-columns:60px minmax(0,1fr) minmax(104px,auto);grid-template-areas:"img txt rm" "step step total";gap:12px 14px}
+  .line .rm{justify-self:end}
   .ln-img{width:60px;height:60px}
   .ln-name{font-size:22px}
   .ln-total{align-self:center}
@@ -391,7 +401,6 @@ img{display:block;max-width:100%}
   </ul>
   <div class="wrap hx-cta rise r5">
     <a class="btn btn-gold" href="#cakes">Explore the menu<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg></a>
-    <a class="btn btn-line" href="{{heroWa}}" target="_blank" rel="noopener"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 20.5l1.4-4.2A8.6 8.6 0 1 1 8 19.3z"></path><path d="M9.2 8.6c.2 2.9 3.3 6 6.2 6.2l1.1-1.5-1.9-.9-.8.7a4.4 4.4 0 0 1-2.9-2.9l.7-.8-.9-1.9z"></path></svg>Order on WhatsApp</a>
   </div>
 </section>
 
@@ -720,7 +729,30 @@ class Component extends DCLogic {
       ] }
   ];
 
-  componentWillUnmount() { clearTimeout(this._bt); }
+  componentDidMount() {
+    // Hold the hero, and each menu chapter until it scrolls in, until their
+    // pictures (and the fonts) are ready, then let the slide-ins play.
+    if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    const ready = (imgs, ms) => Promise.race([wait(ms), Promise.all([...imgs].map(i => i.complete ? 0 :
+      new Promise(r => { i.addEventListener('load', r, { once: true }); i.addEventListener('error', r, { once: true }); })))]);
+    const hero = document.querySelector('.hero');
+    if (hero) {
+      hero.setAttribute('data-wait', '');
+      Promise.all([ready(hero.querySelectorAll('.hx img'), 2500), document.fonts ? Promise.race([document.fonts.ready, wait(2500)]) : 0])
+        .then(() => hero.removeAttribute('data-wait'));
+    }
+    const grids = document.querySelectorAll('.ct-grid');
+    if (!grids.length || !('IntersectionObserver' in window)) return;
+    this._io = new IntersectionObserver(list => list.forEach(e => {
+      if (!e.isIntersecting) return;
+      this._io.unobserve(e.target);
+      ready(e.target.querySelectorAll('img'), 1800).then(() => { e.target.removeAttribute('data-wait'); e.target.setAttribute('data-in', ''); });
+    }), { rootMargin: '0px 0px -10% 0px' });
+    grids.forEach(g => { g.setAttribute('data-wait', ''); this._io.observe(g); });
+  }
+
+  componentWillUnmount() { clearTimeout(this._bt); if (this._io) this._io.disconnect(); }
 
   change(it, delta) {
     const cart = { ...this.state.cart };
@@ -846,7 +878,6 @@ class Component extends DCLogic {
     ].filter(v => v !== null).join('\n');
     const base = num ? `https://wa.me/${num}` : 'https://wa.me/';
     const waHref = `${base}?text=${encodeURIComponent(msg)}`;
-    const heroWa = `${base}?text=${encodeURIComponent("Hello MIHIRI! I'd like to place an order.")}`;
 
     const tf = ["Classic — Cormorant","Couture — Bodoni","Deco — Italiana","Grand — Cinzel","Boutique — Fraunces","Editorial — Instrument","Salon — Playfair","Bold — DM Serif"].indexOf(this.props.typeface ?? '');
     return {
@@ -878,7 +909,6 @@ class Component extends DCLogic {
       setPickup: () => this.setState({ mode: 'Pickup' }),
       setDelivery: () => this.setState({ mode: 'Delivery' }),
       waHref,
-      heroWa,
       telHref: num ? 'tel:+' + num : '#',
       noNumber: !num,
       numberDisplay: num.length === 11 && num.startsWith('94') ? `+94 ${num.slice(2, 4)} ${num.slice(4, 7)} ${num.slice(7)}` : num ? '+' + num : '[YOUR WHATSAPP NUMBER]',
@@ -899,6 +929,7 @@ let queued = false;
 function render() { const out = []; build(tplRoot, app.renderVals(), out); patch(root, out); }
 function schedule() { if (!queued) { queued = true; queueMicrotask(() => { queued = false; render(); }); } }
 render();
+if (app.componentDidMount) app.componentDidMount();
 if (location.hash) { const t = document.getElementById(location.hash.slice(1)); if (t) t.scrollIntoView(); }
 </script>
 </body>
